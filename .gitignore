@@ -1,0 +1,5 @@
+build/
+lwipopts.h
+pico_sdk_import.cmake
+compile_commands.json
+blink.c
