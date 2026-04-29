@@ -7,8 +7,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
-# -------------------------- Helper macro --------------------------
-# two targets (master.uf2, slave.uf2) share the same settings.
 function(configure_pico_target TARGET_NAME SOURCE_FILE)
   add_executable(${TARGET_NAME} ${SOURCE_FILE})
 
@@ -19,7 +17,6 @@ function(configure_pico_target TARGET_NAME SOURCE_FILE)
 
   target_link_libraries(${TARGET_NAME}
     pico_stdlib
-    hardware_gpio
     hardware_i2c
     pico_i2c_slave
     pico_cyw43_arch_none

@@ -1,6 +1,6 @@
-#include <hardware/i2c.h>
 #include <pico/cyw43_arch.h>
 #include <pico/i2c_slave.h>
+#include <hardware/i2c.h>
 #include <pico/stdio.h>
 
 #define I2C_PORT i2c0
@@ -14,8 +14,8 @@
 void led_set(bool on) { cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, on); }
 
 // Wire protocol
-// Write 9B: [0x01][start: 4B LE][end: 4B LE]
-// Read  5B: [status: 0=busy 1=done][sum: 4B LE]
+// Write 9B: [0x01][trials: 4B LE][seed: 4B LE]
+// Read  5B: [status: 0=busy 1=done][hits: 4B LE]
 typedef struct {
     uint8_t rx_buf[9];
     uint8_t rx_idx;
@@ -50,6 +50,29 @@ static void slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     }
 }
 
+uint32_t xorshift32(uint32_t *state) {
+    uint32_t x = *state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    *state = x;
+    return x;
+}
+
+uint32_t monte_carlo_hits(uint32_t trials, uint32_t seed) {
+    uint32_t state = seed;
+    uint32_t hits = 0;
+    for (uint32_t i = 0; i < trials; i++) {
+        float x = (float)xorshift32(&state) / (float)UINT32_MAX;
+        float y = (float)xorshift32(&state) / (float)UINT32_MAX;
+
+        if (x * x + y * y <= 1.0f) {
+            hits++;
+        }
+    }
+    return hits;
+}
+
 int main() {
     stdio_init_all();
 
@@ -69,16 +92,14 @@ int main() {
             led_set(true); // led ON working..
             ctx.work_ready = false;
 
-            uint32_t start, end;
-            memcpy(&start, &ctx.rx_buf[1], 4);
-            memcpy(&end, &ctx.rx_buf[5], 4);
+            uint32_t trials, seed;
+            memcpy(&trials, &ctx.rx_buf[1], 4);
+            memcpy(&seed, &ctx.rx_buf[5], 4);
 
-            uint32_t sum = 0;
-            for (uint32_t i = start; i <= end; i++)
-                sum += i;
+            uint32_t hits = monte_carlo_hits(trials, seed);
 
             ctx.tx_buf[0] = 1;
-            memcpy(&ctx.tx_buf[1], &sum, 4);
+            memcpy(&ctx.tx_buf[1], &hits, 4);
             led_set(false); // led OFF not working.
         }
         tight_loop_contents();
