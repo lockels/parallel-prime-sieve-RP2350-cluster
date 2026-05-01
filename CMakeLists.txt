@@ -16,17 +16,29 @@ function(configure_pico_target TARGET_NAME SOURCE_FILE)
   target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 
   target_link_libraries(${TARGET_NAME}
+    pico_cyw43_arch_none
     pico_stdlib
     hardware_i2c
     pico_i2c_slave
-    pico_cyw43_arch_none
   )
 endfunction()
 
-configure_pico_target(master master.c)
+# -------- Distrubuted Prime Sieve Algorithm --------
+
+configure_pico_target(master sieve/master.c)
 
 foreach(IDX RANGE 0 2)
   math(EXPR ADDR "10 + ${IDX}")
-  configure_pico_target(slave_${IDX} slave.c)
+  configure_pico_target(slave_${IDX} sieve/slave.c)
   target_compile_definitions(slave_${IDX} PRIVATE SLAVE_ADDR=0x${ADDR})
 endforeach()
+
+# -------- Distrubuted Monte Carlo Algorithm --------
+
+# configure_pico_target(master monte-carlo/master.c)
+#
+# foreach(IDX RANGE 0 2)
+#   math(EXPR ADDR "10 + ${IDX}")
+#   configure_pico_target(slave_${IDX} monte-carlo/slave.c)
+#   target_compile_definitions(slave_${IDX} PRIVATE SLAVE_ADDR=0x${ADDR})
+# endforeach()

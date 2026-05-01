@@ -1,9 +1,8 @@
-#include <pico/cyw43_arch.h>
 #include <hardware/i2c.h>
+#include <pico/cyw43_arch.h>
 #include <pico/stdio.h>
-#include <stdint.h>
 
-#define N_TRIALS 1000000
+#define N_TRIALS 20000000
 
 #define I2C_PORT i2c0
 #define SDA_PIN 4
@@ -16,6 +15,10 @@ static const uint8_t slave_addr[N_SLAVES] = {0x10, 0x11, 0x12};
 static const uint32_t master_seed = 0xDEADBEEF;
 static const uint32_t slave_seed[N_SLAVES] = {0xCAFEBABE, 0xBAADF00D,
                                               0xFEEDFACE};
+typedef struct {
+    double elapsed;
+    uint32_t hits;
+} run_result_t;
 
 void led_set(bool on) { cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, on); }
 
@@ -42,8 +45,9 @@ static bool poll_result(uint8_t addr, uint32_t *sum_out) {
         return false;
     }
 
-    if (buf[0] != 1)
+    if (buf[0] != 1) {
         return false;
+    }
 
     memcpy(sum_out, &buf[1], 4);
     return true;
@@ -74,57 +78,47 @@ uint32_t monte_carlo_hits(uint32_t trials, uint32_t seed) {
     return hits;
 }
 
-double run_sequential() {
-    printf("\n--- Sequential Monte Carlo. ---\n");
+run_result_t run_sequential() {
     uint32_t start = time_us_64();
 
-    uint32_t total_hits = monte_carlo_hits(N_TRIALS, master_seed);
+    uint32_t hits = monte_carlo_hits(N_TRIALS, master_seed);
 
     double elapsed = (double)(time_us_64() - start) / 1e6;
-    double pi = 4.0 * ((double)total_hits / (double)N_TRIALS);
-    printf("pi   = %.6f\n", pi);
-    printf("time = %.6fs\n", elapsed);
 
-    return elapsed;
+    return (run_result_t){elapsed, hits};
 }
 
-double run_distrubuted() {
-    printf("\n--- Distrubuted Monte Carlo. ---\n");
+run_result_t run_distrubuted() {
     uint32_t start = time_us_64();
 
+    // 1) Distrbute work
     uint32_t chunk = N_TRIALS / N_NODES;
-
-    bool dispatched[N_SLAVES] = {false};
     for (int i = 0; i < N_SLAVES; i++) {
-        dispatched[i] = send_task(slave_addr[i], chunk, slave_seed[i]);
-
-        if (!dispatched[i])
+        if (!send_task(slave_addr[i], chunk, slave_seed[i])) {
             printf("Slave 0x%02X [OFFLINE]\n", slave_addr[i]);
+        }
     }
 
-    uint32_t total_hits = monte_carlo_hits(chunk, master_seed);
+    // 2) Compute local share of work
+    uint32_t hits = monte_carlo_hits(chunk, master_seed);
 
+    // 3) Accumulate results.
     for (int i = 0; i < N_SLAVES; i++) {
-        if (!dispatched[i])
-            continue;
-
         uint32_t slave_hits = 0, attempts = 0;
+
         while (!poll_result(slave_addr[i], &slave_hits)) {
-            if (++attempts > 200) {
+            if (++attempts > 2000) {
                 printf("Slave 0x%02X [TIMEOUT]\n", slave_addr[i]);
                 break;
             }
         }
 
-        total_hits += slave_hits;
+        hits += slave_hits;
     }
 
     double elapsed = (double)(time_us_64() - start) / 1e6;
-    double pi = 4.0 * ((double)total_hits / (double)N_TRIALS);
-    printf("pi   = %.6f\n", pi);
-    printf("time = %.6fs\n", elapsed);
 
-    return elapsed;
+    return (run_result_t){elapsed, hits};
 }
 
 int main() {
@@ -140,25 +134,28 @@ int main() {
     gpio_pull_up(SDA_PIN);
     gpio_pull_up(SCL_PIN);
 
-    // --- Sequential Monte Carlo Algorithm.
-    // pi = 3.140904, time = 0.213337s
-    //
-    // Distrubuted Monte Carlo Algorithm.
-    // pi = 3.142084, time = 0.059700s
-    //
-    // Speedup: 3,5734840871x
+    // [SEQUENTIAL]:  Time = 4.133s, Pi = 3.141
+    // [DISTRIBUTED]: Time = 1.105s, Pi = 3.142
+    // Speedup:       3.741x
 
-    bool is_seq = true;
+    led_set(true);
 
     while (true) {
-        double time_seq = 0, time_dis = 0;
-        if (is_seq) {
-            time_seq = run_sequential();
-        } else {
-            time_dis = run_distrubuted();
-        }
+        printf("\n---------------- N_TRIALS: %d ----------------\n", N_TRIALS);
 
-        is_seq = !is_seq;
-        sleep_ms(2000);
+        run_result_t seq_result = run_sequential();
+        double seq_pi = 4.0 * ((double)seq_result.hits / (double)N_TRIALS);
+        printf("[SEQUENTIAL]:  Time = %.3lfs, Pi = %.6lf\n",
+               seq_result.elapsed, seq_pi);
+
+        run_result_t dis_result = run_distrubuted();
+        double dis_pi = 4.0 * ((double)dis_result.hits / (double)N_TRIALS);
+        printf("[DISTRIBUTED]: Time = %.3lfs, Pi = %.6lf\n",
+               dis_result.elapsed, dis_pi);
+
+        double speedup = seq_result.elapsed / dis_result.elapsed;
+        printf("Speedup:       %.3lfx\n", speedup);
+
+        sleep_ms(5000);
     }
 }

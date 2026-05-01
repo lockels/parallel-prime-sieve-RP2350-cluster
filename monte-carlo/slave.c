@@ -102,6 +102,6 @@ int main() {
             memcpy(&ctx.tx_buf[1], &hits, 4);
             led_set(false); // led OFF not working.
         }
-        tight_loop_contents();
+        // tight_loop_contents();
     }
 }
