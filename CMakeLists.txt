@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
 function(configure_pico_target TARGET_NAME SOURCE_FILE)
-  add_executable(${TARGET_NAME} ${SOURCE_FILE})
+  add_executable(${TARGET_NAME} ${SOURCE_FILE} sieve.c)
 
   pico_enable_stdio_usb(${TARGET_NAME} 1)
   pico_add_extra_outputs(${TARGET_NAME})
@@ -23,22 +23,10 @@ function(configure_pico_target TARGET_NAME SOURCE_FILE)
   )
 endfunction()
 
-# -------- Distrubuted Prime Sieve Algorithm --------
-
-configure_pico_target(master sieve/master.c)
+configure_pico_target(master master.c)
 
 foreach(IDX RANGE 0 2)
   math(EXPR ADDR "10 + ${IDX}")
-  configure_pico_target(slave_${IDX} sieve/slave.c)
+  configure_pico_target(slave_${IDX} slave.c)
   target_compile_definitions(slave_${IDX} PRIVATE SLAVE_ADDR=0x${ADDR})
 endforeach()
-
-# -------- Distrubuted Monte Carlo Algorithm --------
-
-# configure_pico_target(master monte-carlo/master.c)
-#
-# foreach(IDX RANGE 0 2)
-#   math(EXPR ADDR "10 + ${IDX}")
-#   configure_pico_target(slave_${IDX} monte-carlo/slave.c)
-#   target_compile_definitions(slave_${IDX} PRIVATE SLAVE_ADDR=0x${ADDR})
-# endforeach()
