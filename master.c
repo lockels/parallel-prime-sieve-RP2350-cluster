@@ -120,9 +120,9 @@ int main() {
 
         double seq_time = sequential_sieve();
 
-        // double dis_time = distributed_sieve();
-        //
-        // printf("Speedup: %.3fx\n", seq_time / dis_time);
+        double dis_time = distributed_sieve();
+
+        printf("Speedup: %.3fx\n", seq_time / dis_time);
 
         sleep_ms(2000);
     }
