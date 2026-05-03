@@ -2,10 +2,9 @@
 
 #include <stdint.h>
 
-/* ------ N = 36,000,000 => 2,204,262 primes ------ */
-
-#define N 36000000
-#define SQRT_N (6000 + 1)
+/* ------------------ N = 49,000,000 => 2,944,531 primes ------------------ */
+#define N 49000000
+#define SQRT_N (7000 + 1)
 
 void gen_sml_sieve(void);
 

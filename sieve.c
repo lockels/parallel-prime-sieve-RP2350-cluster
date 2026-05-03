@@ -17,9 +17,7 @@ static uint32_t sml_prime_cnt;
 static uint32_t seg_is_prime[SEG_WORDS];
 
 /* ------ Utility functions ------ */
-static inline uint32_t max_u32(uint32_t a, uint32_t b) {
-    return (a > b) ? a : b;
-}
+static inline uint32_t max_u32(uint32_t a, uint32_t b) { return (a > b) ? a : b; }
 
 static inline bool get_bit(const uint32_t *buf, int i) {
     return (buf[i >> 5] >> (i & 31)) & 1u;
@@ -73,12 +71,19 @@ uint32_t segmented_sieve(uint32_t range_lo, uint32_t range_hi) {
                 clr_bit(seg_is_prime, j - lo);
         }
 
-        // Possible Micro-optimization?
-        // Count 32 bits at a time using popcount instruction
-        for (int i = 0; i <= hi - lo; i++) {
-            if (get_bit(seg_is_prime, i))
-                count++;
-        }
+        // Optimization: Instead of counting every bit individually,
+        // __builtin_popcount uses hardware instructions to count the number of
+        // set bits in an entire 32 bit word at once, allowing the algorithm to
+        // count 32x faster
+        int seg_len = hi - lo + 1;
+        int full_words = seg_len / 32;
+        int rem = seg_len % 32;
+
+        for (int w = 0; w < full_words; w++)
+            count += __builtin_popcount(seg_is_prime[w]);
+        if (rem)
+            count += __builtin_popcount(seg_is_prime[full_words] &
+                                        ((1u << rem) - 1));
     }
 
     return count;

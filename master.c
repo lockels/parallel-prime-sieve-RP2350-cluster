@@ -21,7 +21,7 @@ static bool send_task(uint8_t addr, uint32_t range_lo, uint32_t range_hi) {
 
     int ret = i2c_write_blocking(I2C_PORT, addr, buf, sizeof(buf), false);
     if (ret != sizeof(buf))
-        printf("[write 0x%02X i2c error: %d\n]", addr, ret);
+        printf("[write 0x%02X] i2c error: %d\n", addr, ret);
 
     return ret == sizeof(buf);
 }
@@ -45,6 +45,7 @@ static bool poll_result(uint8_t addr, uint32_t *count_out) {
 static double distributed_sieve(void) {
     uint32_t start = time_us_32();
 
+    // Distribute work
     uint32_t chunk = N / N_NODES;
     for (int i = 0; i < N_SLAVES; i++) {
         uint32_t lo = chunk * (i + 1);
@@ -54,8 +55,10 @@ static double distributed_sieve(void) {
             printf("Slave 0x%02X [OFFLINE]\n", slave_addr[i]);
     }
 
+    // Compute local share of work
     uint32_t count = segmented_sieve(0, chunk - 1);
 
+    // Collect remote results
     for (int i = 0; i < N_SLAVES; i++) {
         uint32_t slave_count = 0, attempts = 0;
 
@@ -64,7 +67,6 @@ static double distributed_sieve(void) {
                 printf("Slave 0x%02X [TIMEOUT]\n", slave_addr[i]);
                 break;
             }
-            sleep_ms(1);
         }
 
         count += slave_count;
@@ -82,6 +84,7 @@ static double distributed_sieve(void) {
 static double sequential_sieve(void) {
     uint32_t start = time_us_32();
 
+    // Execute entire range locally
     uint32_t count = segmented_sieve(0, N);
 
     uint32_t end = time_us_32();
@@ -117,9 +120,9 @@ int main() {
 
         double seq_time = sequential_sieve();
 
-        double dis_time = distributed_sieve();
-
-        printf("Speedup: %.3fx\n", seq_time / dis_time);
+        // double dis_time = distributed_sieve();
+        //
+        // printf("Speedup: %.3fx\n", seq_time / dis_time);
 
         sleep_ms(2000);
     }
