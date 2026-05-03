@@ -60,7 +60,7 @@ int main() {
     gpio_pull_up(SDA_PIN);
     gpio_pull_up(SCL_PIN);
 
-    gen_sml_sieve(); // pre-compute the small primes at boot.
+    gen_sml_sieve(SQRT_N); // pre-compute the small primes at boot.
 
     ctx.tx_buf[0] = 0;
     i2c_slave_init(I2C_PORT, SLAVE_ADDR, &slave_handler);
@@ -76,7 +76,7 @@ int main() {
             memcpy(&lo, &ctx.rx_buf[1], 4);
             memcpy(&hi, &ctx.rx_buf[5], 4);
 
-            uint32_t count = segmented_sieve((int)lo, (int)hi);
+            uint32_t count = segmented_sieve(lo, hi);
 
             ctx.tx_buf[0] = 1;
             memcpy(&ctx.tx_buf[1], &count, 4);

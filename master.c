@@ -42,6 +42,8 @@ static bool poll_result(uint8_t addr, uint32_t *count_out) {
     return true;
 }
 
+
+
 static double distributed_sieve(void) {
     uint32_t start = time_us_32();
 
@@ -49,7 +51,7 @@ static double distributed_sieve(void) {
     uint32_t chunk = N / N_NODES;
     for (int i = 0; i < N_SLAVES; i++) {
         uint32_t lo = chunk * (i + 1);
-        uint32_t hi = (i == N_SLAVES - 1) ? N - 1 : lo + chunk - 1;
+        uint32_t hi = (i != N_SLAVES - 1) ? lo + chunk - 1 : N - 1;
 
         if (!send_task(slave_addr[i], lo, hi))
             printf("Slave 0x%02X [OFFLINE]\n", slave_addr[i]);
@@ -60,7 +62,8 @@ static double distributed_sieve(void) {
 
     // Collect remote results
     for (int i = 0; i < N_SLAVES; i++) {
-        uint32_t slave_count = 0, attempts = 0;
+        uint32_t slave_count = 0;
+        uint32_t attempts = 0;
 
         while (!poll_result(slave_addr[i], &slave_count)) {
             if (++attempts > 2000) {
@@ -85,7 +88,7 @@ static double sequential_sieve(void) {
     uint32_t start = time_us_32();
 
     // Execute entire range locally
-    uint32_t count = segmented_sieve(0, N);
+    uint32_t count = segmented_sieve(0, N - 1);
 
     uint32_t end = time_us_32();
 
@@ -113,7 +116,7 @@ int main() {
 
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
 
-    gen_sml_sieve();
+    gen_sml_sieve(SQRT_N);
 
     while (true) {
         printf("\n---------------- N: %d ----------------\n", N);

@@ -27,6 +27,6 @@ configure_pico_target(master master.c)
 
 foreach(IDX RANGE 0 2)
   math(EXPR ADDR "10 + ${IDX}")
-  configure_pico_target(slave_${IDX} slave.c)
-  target_compile_definitions(slave_${IDX} PRIVATE SLAVE_ADDR=0x${ADDR})
+  configure_pico_target(slave${IDX} slave.c)
+  target_compile_definitions(slave${IDX} PRIVATE SLAVE_ADDR=0x${ADDR})
 endforeach()

@@ -1,5 +1,6 @@
 #include <pico/cyw43_arch.h>
 #include <pico/stdio.h>
+#include <stdint.h>
 
 #include "sieve.h"
 
@@ -11,7 +12,7 @@ static uint16_t sml_prime[SQRT_N];
 static uint32_t sml_prime_cnt;
 
 /* ------ Memory for primes within segment [lo..hi] ------ */
-#define SEG_SIZE 32768
+#define SEG_SIZE 65536 // 8KB
 #define SEG_WORDS (SEG_SIZE / 32)
 
 static uint32_t seg_is_prime[SEG_WORDS];
@@ -28,27 +29,31 @@ static inline void clr_bit(uint32_t *buf, int i) {
 }
 
 /* Generates prime numbers up to sqrt(n) and stores the result in sml_prime.
- * Runs Sieve of Eratosthenes algorithm over the range [2...sqrt(n)] */
-void gen_sml_sieve(void) {
+ * Runs Sieve of Eratosthenes algorithm over the range [2...sqrt(n)]
+ *
+ *  Complexity: O(sqrt(n)) time & space. */
+void gen_sml_sieve(uint32_t limit) {
     memset(sml_is_prime, 0xFF, sizeof(sml_is_prime));
     clr_bit(sml_is_prime, 0);
     clr_bit(sml_is_prime, 1);
 
-    for (int p = 2; p * p <= SQRT_N; p++) {
+    for (int p = 2; p * p <= limit; p++) {
         if (get_bit(sml_is_prime, p)) {
-            for (int j = p * p; j <= SQRT_N; j += p)
+            for (int j = p * p; j <= limit; j += p)
                 clr_bit(sml_is_prime, j);
         }
     }
 
     sml_prime_cnt = 0;
-    for (int p = 2; p <= SQRT_N; p++) {
+    for (int p = 2; p <= limit; p++) {
         if (get_bit(sml_is_prime, p))
             sml_prime[sml_prime_cnt++] = (uint16_t)p;
     }
 }
 
-/* Segmented Sieve of Eratosthenes. Returns the number of primes <= n. */
+/* Segmented Sieve of Eratosthenes. Returns the number of primes <= n.
+ *
+ * Complexity: O(n log log n) time, O(S) space. */
 uint32_t segmented_sieve(uint32_t range_lo, uint32_t range_hi) {
     uint32_t count = 0;
 
