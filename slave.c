@@ -13,7 +13,7 @@
 #endif
 
 typedef struct {
-    uint8_t rx_buf[9];
+    uint8_t rx_buf[13];
     uint8_t rx_idx;
     uint8_t tx_buf[5];
     uint8_t tx_idx;
@@ -60,8 +60,6 @@ int main() {
     gpio_pull_up(SDA_PIN);
     gpio_pull_up(SCL_PIN);
 
-    gen_sml_sieve(SQRT_N); // pre-compute the small primes at boot.
-
     ctx.tx_buf[0] = 0;
     i2c_slave_init(I2C_PORT, SLAVE_ADDR, &slave_handler);
 
@@ -72,11 +70,13 @@ int main() {
             cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
             ctx.work_ready = false;
 
-            uint32_t lo, hi;
-            memcpy(&lo, &ctx.rx_buf[1], 4);
-            memcpy(&hi, &ctx.rx_buf[5], 4);
+            uint32_t range_lo, range_hi, sqrt_n;
+            memcpy(&range_lo, &ctx.rx_buf[1], 4);
+            memcpy(&range_hi, &ctx.rx_buf[5], 4);
+            memcpy(&sqrt_n, &ctx.rx_buf[9], 4);
 
-            uint32_t count = segmented_sieve(lo, hi);
+            gen_sml_sieve(sqrt_n);
+            uint32_t count = segmented_sieve(range_lo, range_hi);
 
             ctx.tx_buf[0] = 1;
             memcpy(&ctx.tx_buf[1], &count, 4);
