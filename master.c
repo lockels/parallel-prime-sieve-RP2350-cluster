@@ -54,8 +54,6 @@ typedef struct {
 static result_t distributed_sieve(uint32_t n, uint32_t sqrt_n, uint8_t p) {
     uint32_t t0 = time_us_32();
 
-    uint32_t dist_start = time_us_32(); // Start distribution timer
-
     // Distribute work
     uint32_t chunk = n / p;
     for (int i = 0; i < p - 1; i++) {
@@ -66,17 +64,9 @@ static result_t distributed_sieve(uint32_t n, uint32_t sqrt_n, uint8_t p) {
             printf("Slave 0x%02X [OFFLINE]\n", slave_addr[i]);
     }
 
-    uint32_t dist_end = time_us_32(); // End distribution timer
-
-    uint32_t comp_start = time_us_32(); // Start computation timer
-
     // Compute local share of work
     gen_sml_sieve(sqrt_n);
     uint32_t count = segmented_sieve(0, chunk - 1);
-
-    uint32_t comp_end = time_us_32(); // End computation timer
-
-    uint32_t poll_start = time_us_32(); // Start polling timer
 
     // Collect remote results
     for (int i = 0; i < p - 1; i++) {
@@ -94,16 +84,7 @@ static result_t distributed_sieve(uint32_t n, uint32_t sqrt_n, uint8_t p) {
         count += slave_count;
     }
 
-    uint32_t poll_end = time_us_32(); // End polling timer
-
     double elapsed = ((double)time_us_32() - t0) / 1e6;
-
-    double comp_time = (double)(comp_end - comp_start) / 1e6;
-    double comm_time = ((double)(dist_end - dist_start) / 1e6) +
-        ((double)(poll_end - poll_start) / 1e6);
-
-    printf("comp = %.2fs, comm = %.2fs, ratio: %.2fs\n", comp_time, comm_time,
-            comp_time / comm_time);
 
     return (result_t){count, elapsed};
 }
