@@ -5,14 +5,14 @@
 
 /* ------------ Memory for primes up to sqrt(n) ------------ */
 
-#define SML_WORDS ((MAX_SQRT_N + 31) / 32)
+#define SML_WORDS ((SQRT_N + 31) / 32)
 static uint32_t sml_is_prime[SML_WORDS];
-static uint16_t sml_prime[MAX_SQRT_N];
+static uint16_t sml_prime[SQRT_N];
 static uint32_t sml_prime_cnt;
 
 /* ------------ Memory for primes within [lo..hi] ------------ */
 
-#define SEG_SIZE 16384
+#define SEG_SIZE 131072
 #define SEG_WORDS (SEG_SIZE / 32)
 static uint32_t seg_is_prime[SEG_WORDS];
 

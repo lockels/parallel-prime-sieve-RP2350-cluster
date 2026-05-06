@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 
-#define MAX_N 51000000
-#define MAX_SQRT_N 7142
+#define N 55000000
+#define SQRT_N 7417
 
 void gen_sml_sieve(uint32_t sqrt_n);
 

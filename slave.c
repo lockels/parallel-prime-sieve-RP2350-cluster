@@ -63,11 +63,9 @@ int main() {
     ctx.tx_buf[0] = 0;
     i2c_slave_init(I2C_PORT, SLAVE_ADDR, &slave_handler);
 
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
-
     while (true) {
         if (ctx.work_ready) {
-            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
             ctx.work_ready = false;
 
             uint32_t range_lo, range_hi, sqrt_n;
@@ -80,7 +78,7 @@ int main() {
 
             ctx.tx_buf[0] = 1;
             memcpy(&ctx.tx_buf[1], &count, 4);
-            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
         }
     }
 }

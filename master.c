@@ -51,25 +51,35 @@ typedef struct {
     double elapsed;
 } result_t;
 
-static result_t distributed_sieve(uint32_t n, uint32_t sqrt_n) {
+static result_t distributed_sieve(uint32_t n, uint32_t sqrt_n, uint8_t p) {
     uint32_t t0 = time_us_32();
 
+    uint32_t dist_start = time_us_32(); // Start distribution timer
+
     // Distribute work
-    uint32_t chunk = n / N_NODES;
-    for (int i = 0; i < N_SLAVES; i++) {
+    uint32_t chunk = n / p;
+    for (int i = 0; i < p - 1; i++) {
         uint32_t lo = chunk * (i + 1);
-        uint32_t hi = (i != N_SLAVES - 1) ? lo + chunk - 1 : n - 1;
+        uint32_t hi = (i != p - 2) ? lo + chunk - 1 : n - 1;
 
         if (!send_task(slave_addr[i], lo, hi, sqrt_n))
             printf("Slave 0x%02X [OFFLINE]\n", slave_addr[i]);
     }
 
+    uint32_t dist_end = time_us_32(); // End distribution timer
+
+    uint32_t comp_start = time_us_32(); // Start computation timer
+
     // Compute local share of work
     gen_sml_sieve(sqrt_n);
     uint32_t count = segmented_sieve(0, chunk - 1);
 
+    uint32_t comp_end = time_us_32(); // End computation timer
+
+    uint32_t poll_start = time_us_32(); // Start polling timer
+
     // Collect remote results
-    for (int i = 0; i < N_SLAVES; i++) {
+    for (int i = 0; i < p - 1; i++) {
         uint32_t slave_count = 0;
         uint32_t attempts = 0;
 
@@ -84,7 +94,16 @@ static result_t distributed_sieve(uint32_t n, uint32_t sqrt_n) {
         count += slave_count;
     }
 
+    uint32_t poll_end = time_us_32(); // End polling timer
+
     double elapsed = ((double)time_us_32() - t0) / 1e6;
+
+    double comp_time = (double)(comp_end - comp_start) / 1e6;
+    double comm_time = ((double)(dist_end - dist_start) / 1e6) +
+        ((double)(poll_end - poll_start) / 1e6);
+
+    printf("comp = %.2fs, comm = %.2fs, ratio: %.2fs\n", comp_time, comm_time,
+            comp_time / comm_time);
 
     return (result_t){count, elapsed};
 }
@@ -115,21 +134,33 @@ int main() {
     gpio_pull_up(SDA_PIN);
     gpio_pull_up(SCL_PIN);
 
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
+    // Time for the user to see the serial output
+    sleep_ms(2000);
 
     while (true) {
-        printf("\n---- N = %d, SQRT_N = %d ----\n", MAX_N, MAX_SQRT_N);
+        printf("\n---- N = %d, SQRT_N = %d ----\n", N, SQRT_N);
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
 
-        result_t seq_res = sequential_sieve(MAX_N, MAX_SQRT_N);
-
-        printf("[SEQUENTIAL]:  %d primes (%.3fs)\n", seq_res.count,
+        // Run the sequential algorithm first.
+        result_t seq_res = sequential_sieve(N, SQRT_N);
+        printf("[SEQUENTIAL]:  %d primes (%.2fs)\n", seq_res.count,
                seq_res.elapsed);
 
-        // result_t dis_res = distributed_sieve(MAX_N, MAX_SQRT_N);
-        // printf("[DISTRIBUTED]: %d primes (%.3fs)\n", dis_res.count,
-        //        dis_res.elapsed);
-        //
-        // printf("Speedup: %.3lfx\n", seq_res.elapsed / dis_res.elapsed);
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
+
+        // Increase the number of processors p, and compute speedup
+        for (int p = 2; p <= N_NODES; p++) {
+            printf("\n---- N = %d, SQRT_N = %d, p = %d ----\n", N, SQRT_N, p);
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
+
+            result_t dis_res = distributed_sieve(N, SQRT_N, p);
+            printf("[DISTRIBUTED (%d nodes)]: %d primes (%.2fs)\n", p,
+                    dis_res.count, dis_res.elapsed);
+
+            printf("Speedup: %.3lfx\n", seq_res.elapsed / dis_res.elapsed);
+
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
+        }
 
         sleep_ms(5000);
     }
